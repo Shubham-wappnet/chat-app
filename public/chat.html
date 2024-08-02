@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        #chat {
+            width: 80%;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        input {
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px;
+            background-color: #349cbc;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #298a9b;
+        }
+        #messages {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            max-height: 400px;
+            overflow-y: auto;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        #messages li {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            background-color: #f9f9f9;
+        }
+        #messages li:nth-child(odd) {
+            background-color: #e9e9e9;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat">
+        <h2>Chat</h2>
+        <form id="chat-form">
+            <input id="receiver" placeholder="Receiver ID" required>
+            <input id="message" placeholder="Type a message" required>
+            <button type="submit">Send</button>
+        </form>
+        <ul id="messages"></ul>
+    </div>
+    <script src="socket.io/socket.io.js"></script>
+    <script>
+        const socket=io();
+
+        const chatForm=document.getElementById('chat-form');
+        const receiverInput=document.getElementById('receiver');
+        const messageInput=document.getElementById('message');
+        const messagesList=document.getElementById('message');
+
+        const token=localStorage.getItem('token');
+        if(!token){
+            window.location.href='login.html';
+        }
+        chatForm.addEventListener('submit',(event)=>{
+            event.preventDefault();
+            const receiver=receiverInput.value;
+            const message=messageInput.value;
+            if(token && receiver && message){
+                socket.emit('private message',{
+                    sender,
+                    receiver,
+                    message
+                })
+                messageInput.value='';
+            }
+        })
+        socket.on('private message',({sender,message,timestamp})=>{
+            const item=document.createElement('li');
+            item.textContent=`${sender}:${message}(${new Date(timestamp).toLocaleTimeString()})`;
+            messagesList.appendChild(item);
+            window.scrollTo(0, document.body.scrollHeight);
+        })
+    </script>
+</body>
+</html>

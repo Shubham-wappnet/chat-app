@@ -5,116 +5,121 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Application</title>
     <style>
-       body { margin: 0; 
-              padding-bottom: 3rem; 
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            }
-
-        #form { background: rgba(0, 0, 0, 0.15); 
-            padding: 0.25rem; 
-            position: fixed; 
-            bottom: 0; 
-            left: 0; 
-            right: 0; 
-            display: flex; 
-            height: 3rem; 
-            box-sizing: border-box; 
-            backdrop-filter: blur(10px); 
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
         }
-       #input { border: none; 
-            padding: 0 1rem; 
-            flex-grow: 1; 
-            border-radius: 2rem; 
-            margin: 0.25rem; 
+        #auth, #chat {
+            width: 80%;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        #input:focus { outline: none; }
-
-        #form > button { background: #349cbc; 
-            border: none; 
-            padding: 0 1rem; 
-            margin: 0.25rem; 
-            border-radius: 3px; 
-            outline: none; 
-            color: #fff; 
+        h2, h3 {
+            text-align: center;
+            color: #333;
         }
-
-       #messages { list-style-type: none; 
-            margin: 0; 
-            padding: 0; 
+        form {
+            display: flex;
+            flex-direction: column;
         }
-       #messages > li { padding: 0.5rem 1rem; }
-       #messages > li:nth-child(odd) { background: #efefef; }
+        input {
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px;
+            background-color: #349cbc;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #298a9b;
+        }
+        #messages {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            max-height: 400px;
+            overflow-y: auto;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        #messages li {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            background-color: #f9f9f9;
+        }
+        #messages li:nth-child(odd) {
+            background-color: #e9e9e9;
+        }
     </style>
 </head>
 <body>
-    <h2>Chat Application</h2>
-    <ul id="messages"></ul>
-    <form id="form" action="">
-      <input id="input" autocomplete="off" /><button>Send</button>
-      <button id="toggle-btn">Disconnect</button>
-    </form>
+    <div id="auth">
+        <h2>Chat Application</h2>
+        <form id="register-form">
+            <h3>Register</h3>
+            <input id="register-username" placeholder="Username" required>
+            <input id="register-password" type="password" placeholder="Password" required>
+            <button type="submit">Register</button>
+        </form>
+        <form id="login-form">
+            <h3>Login</h3>
+            <input id="login-username" placeholder="Username" required>
+            <input id="login-password" type="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+    <div id="chat" style="display: none;">
+        <form id="chat-form">
+            <input id="receiver" placeholder="Receiver ID" required>
+            <input id="message" placeholder="Type a message" required>
+            <button type="submit">Send</button>
+        </form>
+        <ul id="messages"></ul>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
 
-        const socket=io({
-            reconnection: true,
-            reconnectionAttempts: Infinity,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-        });
-        const form =document.getElementById('form');
-        const input=document.getElementById('input');
-        const messages=document.getElementById('messages');
-        const toggleButton=document.getElementById('toggle-btn');
+        const socket=io()
 
-        //const room=`room_${Math.random().toString(36).substring(7)}`
-        const room='room1';
-        let lastMessage = null;
-        function joinRoom() {
-            socket.emit('join room', { room, lastMessage });
-        }
-        joinRoom();
-        // send message from client-side
-        form.addEventListener('submit',(event)=>{
-            event.preventDefault();
-            if(input.value){
+        const authDiv = document.getElementById('auth');
+        const chatDiv = document.getElementById('chat');
 
-                //room
-                socket.emit('chat message', {room, message:input.value});                                                                                                                                                                                                                                                                                                                                                                                                                                         
-                input.value='';
-            }
-        })
+        const registerForm = document.getElementById('register-form');
+        const loginForm = document.getElementById('login-form');
+        const chatForm = document.getElementById('chat-form');
 
-        // capture messages on client-side
-        socket.on('chat message',({room,message,timestamp})=>{
-            const item=document.createElement('li');
-            item.textContent=message;
-            messages.appendChild(item);
-            window.scrollTo(0, document.body.scrollHeight);
-            lastMessage=timestamp;
-        });
-        socket.on('error', (msg) => {
-            alert(msg);
-        });
-
-        // connection state recovery
-        toggleButton.addEventListener('click',(event)=>{
-            event.preventDefault();
-            if(socket.connected){
-                toggleButton.innerText='Connect';
-                socket.disconnect();
-            }
-            else{
-                toggleButton.innerText='Disconnect';
-                socket.connect();
-                joinRoom();
-            }
-        })
+        const receiverInput = document.getElementById('receiver');
+        const messageInput = document.getElementById('message');
+        const messagesList = document.getElementById('messages');
         
-        // room dis-connection time
-        // setTimeout(()=>{
-        //    socket.emit('leave room',room);
-        // },100000)
+        let token=null;
+
+        registerForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('register-username').value;
+            const password = document.getElementById('register-password').value;
+
+            await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            }).then(res => res.text()).then(console.log).catch(console.error);
+        });
     </script>
 </body>
 </html>
