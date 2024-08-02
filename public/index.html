@@ -67,27 +67,35 @@
         const messages=document.getElementById('messages');
         const toggleButton=document.getElementById('toggle-btn');
 
-        const room=`room_${Math.random().toString(36).substring(7)}`
-        socket.emit('join room',room);
+        //const room=`room_${Math.random().toString(36).substring(7)}`
+        const room='room1';
+        let lastMessage = null;
+        function joinRoom() {
+            socket.emit('join room', { room, lastMessage });
+        }
+        joinRoom();
         // send message from client-side
         form.addEventListener('submit',(event)=>{
             event.preventDefault();
             if(input.value){
-               socket.emit('chat message',input.value);
-               input.value='';
-                 // room
-                // socket.emit('chat message', {room:room , msg:input.value});                                                                                                                                                                                                                                                                                                                                                                                                                                         
-                // input.value='';
+
+                //room
+                socket.emit('chat message', {room, message:input.value});                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                input.value='';
             }
         })
-        
+
         // capture messages on client-side
-        socket.on('chat message',(msg)=>{
+        socket.on('chat message',({room,message,timestamp})=>{
             const item=document.createElement('li');
-            item.textContent=msg;
+            item.textContent=message;
             messages.appendChild(item);
             window.scrollTo(0, document.body.scrollHeight);
-        })
+            lastMessage=timestamp;
+        });
+        socket.on('error', (msg) => {
+            alert(msg);
+        });
 
         // connection state recovery
         toggleButton.addEventListener('click',(event)=>{
@@ -99,9 +107,10 @@
             else{
                 toggleButton.innerText='Disconnect';
                 socket.connect();
+                joinRoom();
             }
         })
-
+        
         // room dis-connection time
         // setTimeout(()=>{
         //    socket.emit('leave room',room);
