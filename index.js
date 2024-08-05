@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 
 const app = express();
 const server = createServer(app);
@@ -23,21 +24,26 @@ const userSchema = new mongoose.Schema({
   password: String,
 });
 
+const User = mongoose.model('User', userSchema);
+
 // chat-schema
 const chatSchema = new mongoose.Schema({
-  sender: String,
-  receiver: String,
+  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   message: String,
   timestamp: { type: Date, default: Date.now },
 });
 
-const User = mongoose.model('User', userSchema);
 const Chat = mongoose.model('Chat', chatSchema);
 
 // middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
+
+// ejs
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 app.use(
   session({
     secret: process.env.SECRET_KEY,
@@ -53,7 +59,7 @@ app.post('/register', async (req, res) => {
   try {
     const newUser = new User({ username, password: hashedPassword });
     await newUser.save();
-    res.status(201).send('User registered successfully');
+    res.redirect(`/success?username=${encodeURIComponent(username)}`);
   } catch (err) {
     res.status(400).send('User is not registered');
   }
@@ -64,40 +70,88 @@ app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username });
   if (user && (await bcrypt.compare(password, user.password))) {
-    const token = jwt.sign({ username: user.username }, process.env.SECRET_KEY, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, { expiresIn: '1h' });
     res.json({ token });
   } else {
     res.status(400).send('Invalid username or password');
   }
 });
 
+app.get('/register', (req, res) => {
+  res.render('register');
+});
+app.get('/success', (req, res) => {
+  const { username } = req.query;
+  res.render('success', { username });
+});
+app.get('/login', (req, res) => {
+  res.render('login');
+});
+app.get('/chat', (req, res) => {
+  res.render('chat');
+});
+
+const users = {};
 // handle socket-connection
 io.on('connection', (socket) => {
   console.log('A user connected');
 
-  socket.on('join', (userId) => {
-    socket.join(userId);
-    console.log(`User ${userId} joined`);
-  });
-  socket.on('private message', async ({ sender, receiver, message }) => {
-    if (!sender || !receiver || !message) {
+  // Handle private message
+  socket.on('private message', async ({ receiver, message, token }) => {
+    try {
+      const decoded = jwt.verify(token, process.env.SECRET_KEY);
+      const user = await User.findById(decoded.userId);
+      console.log(user);
+      if (user) {
+        users[user.username] = socket.id;
+        socket.username = user.username;
+        console.log(`User ${user.username} registered with socket id ${socket.id}`);
+      }
+    } catch (err) {
+      console.log('Token verification failed:', err);
+    }
+    if (!socket.username || !receiver || !message) {
       return socket.emit('error', 'Invalid message data');
     }
 
-    const chatMessage = new Chat({ sender, receiver, message });
-    await chatMessage.save();
+    try {
+      // Find receiver user
+      const receiverUser = await User.findOne({ username: receiver });
+      //console.log(receiverUser);
+      if (!receiverUser) {
+        return socket.emit('error', 'Receiver not found');
+      }
 
-    io.to(receiver).emit('private message', {
-      sender,
-      message,
-      timestamp: chatMessage.timestamp.toISOString()
-    });
+      // Save message to database
+      const chatMessage = new Chat({
+        sender: socket.username,
+        receiver: receiverUser._id,
+        message,
+      });
+      //console.log(chatMessage);
+      await chatMessage.save();
+
+      // Send message to receiver if they are online
+      const receiverSocketId = users[receiver];
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit('private message', {
+          sender: socket.username,
+          message,
+          timestamp: chatMessage.timestamp.toISOString(),
+        });
+      }
+    } catch (err) {
+      console.log('Error handling message:', err);
+    }
   });
 
+  // Handle disconnection
   socket.on('disconnect', () => {
-    console.log('A user is disconnected');
+    console.log('A user disconnected');
+    if (socket.username) {
+      delete users[socket.username];
+    }
   });
-  
 });
 
 const port = 8000;

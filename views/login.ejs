@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <style>
+      body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 5px;
+        }
+        input[type="text"], input[type="password"] {
+            margin-bottom: 15px;
+            padding: 8px;
+            font-size: 16px;
+        }
+        /* a{
+            padding-left: 370px;
+            padding-bottom: 10px;
+        } */
+        button {
+            padding: 10px;
+            font-size: 16px;
+            background-color: #4ca0af;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #4ca0af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+      <h1>Login</h1>
+      <form id="loginForm">
+
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required>
+        
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+
+        <!-- <a href="/auth/forgot-password">Forgot Password</a> -->
+        
+        <button type="submit">Sign in</button>
+        <h3>Do Not Have An Account <a href="/register">Sign up</a></h3>
+     </form>
+    </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit',async(event)=>{
+            event.preventDefault();
+
+            const username=document.getElementById('username').value;
+            const password=document.getElementById('password').value;
+
+            try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            console.log('api-response', response);
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Token received:', data.token);
+
+                localStorage.setItem('token', data.token);
+                
+                console.log('Token stored in localStorage:', localStorage.getItem('token'));
+                window.location.href = '/chat';
+            } else {
+                const errorData = await response.json();
+                console.log('Login failed:', errorData.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        })
+    </script>
+</body>
+</html>
