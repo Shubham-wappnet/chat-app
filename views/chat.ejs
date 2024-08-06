@@ -6,7 +6,7 @@
     <title>Chat Application</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
             padding: 0;
@@ -19,49 +19,64 @@
             border-radius: 8px;
             background-color: #fff;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            height:calc(100vh-80px); 
         }
         h2 {
             text-align: center;
             color: #333;
+            margin-bottom: 20px;;
         }
-        form {
+        #chat-form {
+            background: rgba(42, 41, 41, 0.15);
+            padding: 5rem;
+            position: relative;
             display: flex;
             flex-direction: column;
+            box-sizing: border-box;
+            backdrop-filter: blur(10px);
         }
-        input {
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        button {
-            padding: 10px;
-            background-color: #349cbc;
+        #chat-form > button {
+            background: #349cbc;
             border: none;
-            border-radius: 5px;
+            padding: 0.3rem 1rem;
+            border-radius: 3px;
+            outline: none;
             color: #fff;
             font-size: 16px;
             cursor: pointer;
+            
         }
-        button:hover {
-            background-color: #298a9b;
+        #chat-form > button:hover {
+            background: #298a9b;
+        }
+        #message,#receiver {
+            border: none;
+            padding: 0.5rem;
+            /* flex-grow: 1; */
+            border-radius: 2rem;
+            margin: 1rem;
+            font-size: 16px;
+        }
+        #message:focus, #receiver:focus {
+            outline: none;
         }
         #messages {
             list-style-type: none;
             padding: 0;
             margin: 0;
-            max-height: 400px;
+            /* flex-grow: 1; */
             overflow-y: auto;
             border-top: 1px solid #ddd;
             padding-top: 10px;
         }
-        #messages li {
+        #messages>li {
             padding: 10px;
             border-bottom: 1px solid #ddd;
             background-color: #f9f9f9;
         }
-        #messages li:nth-child(odd) {
+        #messages >li:nth-child(odd) {
             background-color: #e9e9e9;
         }
     </style>
@@ -70,6 +85,7 @@
     <div id="chat">
         <h2>Chat</h2>
         <form id="chat-form">
+            <input id="receiver" placeholder="Enter receiver username" required>
             <input id="message" placeholder="Type a message" required>
             <button type="submit">Send</button>
         </form>
@@ -81,28 +97,20 @@
 
         const chatForm=document.getElementById('chat-form');
         const messageInput=document.getElementById('message');
-        const messagesList=document.getElementById('message');
+        const receiverInput = document.getElementById('receiver');
+        const messagesList=document.getElementById('messages');
 
         const token=localStorage.getItem('token');
         if(!token){
             console.log('You are not authorized user');
         }
 
-        // const decodeToken=jwt.decode(token);
-        // const sender=decodeToken?.username;
-
-        if (sender) {
-            socket.emit('registerUser', token);
-        } else {
-            console.log('Failed to decode token or user is not authorized.');
-            window.location.href = '/login';
-        }
-
         chatForm.addEventListener('submit',(event)=>{
             event.preventDefault();
             const message=messageInput.value;
+            const receiver = receiverInput.value;
 
-            if(token && sender && message){
+            if(token && message && receiver){
                 socket.emit('private message',{ 
                     receiver,
                     message,
@@ -113,10 +121,13 @@
         })
         socket.on('private message',({sender,message,timestamp})=>{
             const item=document.createElement('li');
-            item.textContent=message;
-            messages.appendChild(item);
+            item.textContent=`${sender}: ${message} (${timestamp})`;
+            messagesList.appendChild(item);
             window.scrollTo(0, document.body.scrollHeight);
-        })
+        });
+        socket.on('error', (error) => {
+            console.error('Error:', error);
+        });
     </script>
 </body>
 </html>

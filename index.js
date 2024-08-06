@@ -77,6 +77,31 @@ app.post('/login', async (req, res) => {
   }
 });
 
+app.get('/chat', async (req, res) => {
+  const { sender, receiver } = req.query;
+  if (!sender || !receiver) {
+    res.status(400).json({ message: 'Sender and receiver are required' });
+  }
+  try {
+    const senderUser = await User.findOne({ username: sender });
+    const receiverUser = await User.findOne({ username: receiver });
+
+    if (!senderUser || !receiverUser) {
+      res.status(404).json({ message: 'Sender or receiver not found' });
+    }
+    const chats = await Chat.find({
+      $or: [
+        { sender: senderUser._id, receiver: receiverUser._id },
+        { sender: receiverUser._id, receiver: senderUser._id },
+      ],
+    }).sort({ timestamp: 1 });
+    res.json(chats);
+  } catch (err) {
+    console.error('Error retrieving chats:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 app.get('/register', (req, res) => {
   res.render('register');
 });
@@ -100,48 +125,38 @@ io.on('connection', (socket) => {
   socket.on('private message', async ({ receiver, message, token }) => {
     try {
       const decoded = jwt.verify(token, process.env.SECRET_KEY);
-      const user = await User.findById(decoded.userId);
-      console.log(user);
-      if (user) {
-        users[user.username] = socket.id;
-        socket.username = user.username;
-        console.log(`User ${user.username} registered with socket id ${socket.id}`);
+      const senderUser = await User.findById(decoded.userId);
+      if (!senderUser) {
+        return socket.emit('error', 'Sender not found');
       }
-    } catch (err) {
-      console.log('Token verification failed:', err);
-    }
-    if (!socket.username || !receiver || !message) {
-      return socket.emit('error', 'Invalid message data');
-    }
+      socket.username = senderUser.username;
 
-    try {
-      // Find receiver user
       const receiverUser = await User.findOne({ username: receiver });
-      //console.log(receiverUser);
       if (!receiverUser) {
         return socket.emit('error', 'Receiver not found');
       }
 
-      // Save message to database
+      // save chat to db
       const chatMessage = new Chat({
-        sender: socket.username,
+        sender: senderUser._id,
         receiver: receiverUser._id,
         message,
       });
-      //console.log(chatMessage);
       await chatMessage.save();
+      console.log(chatMessage);
 
-      // Send message to receiver if they are online
+      // send message
       const receiverSocketId = users[receiver];
       if (receiverSocketId) {
         io.to(receiverSocketId).emit('private message', {
-          sender: socket.username,
+          sender: senderUser.username,
           message,
           timestamp: chatMessage.timestamp.toISOString(),
         });
       }
     } catch (err) {
       console.log('Error handling message:', err);
+      socket.emit('error', 'Internal server error');
     }
   });
 
