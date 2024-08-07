@@ -77,7 +77,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.get('/chat', async (req, res) => {
+app.get('/chats', async (req, res) => {
   const { sender, receiver } = req.query;
   if (!sender || !receiver) {
     res.status(400).json({ message: 'Sender and receiver are required' });
@@ -121,6 +121,11 @@ const users = {};
 io.on('connection', (socket) => {
   console.log('A user connected');
 
+  socket.on('set username', (username) => {
+    users[username] = socket.id;
+    socket.username = username;
+    console.log(`Username set to ${username}`);
+  });
   // Handle private message
   socket.on('private message', async ({ receiver, message, token }) => {
     try {
@@ -147,6 +152,7 @@ io.on('connection', (socket) => {
 
       // send message
       const receiverSocketId = users[receiver];
+      console.log(receiverSocketId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit('private message', {
           sender: senderUser.username,
